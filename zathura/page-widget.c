@@ -277,34 +277,31 @@ static void zathura_page_widget_finalize(GObject* object) {
   G_OBJECT_CLASS(zathura_page_widget_parent_class)->finalize(object);
 }
 
-/* Vimium default hint characters */
-static const char HINT_CHARS[] = "sadfjklewcmpgh";
-static const unsigned int HINT_CHARS_N = 14;
-
-/* Convert a 0-based index to a hint label (1 char, then 2, then 3, ...).
+/* Convert a 0-based index to a hint label using the given character set.
  * Caller must g_free(). */
-static char* hint_label(unsigned int index) {
+static char* hint_label(const char* chars, unsigned int n, unsigned int index) {
   unsigned int offset = 0;
-  unsigned int block  = HINT_CHARS_N;
+  unsigned int block  = n;
   unsigned int len    = 1;
   while (index >= offset + block) {
     offset += block;
-    block  *= HINT_CHARS_N;
+    block  *= n;
     len++;
   }
   unsigned int pos = index - offset;
   char* label      = g_malloc(len + 1);
   label[len]       = '\0';
   for (int i = (int)len - 1; i >= 0; i--) {
-    label[i] = HINT_CHARS[pos % HINT_CHARS_N];
-    pos /= HINT_CHARS_N;
+    label[i] = chars[pos % n];
+    pos /= n;
   }
   return label;
 }
 
-/* Convert a hint label back to its 0-based index, or -1 on error. */
-int hint_label_to_index(const char* input) {
-  if (input == NULL || input[0] == '\0') {
+/* Convert a hint label back to its 0-based index using the given character
+ * set, or -1 on error. */
+int hint_label_to_index(const char* chars, unsigned int n, const char* input) {
+  if (chars == NULL || n == 0 || input == NULL || input[0] == '\0') {
     return -1;
   }
   unsigned int len = strlen(input);
@@ -313,21 +310,21 @@ int hint_label_to_index(const char* input) {
   }
   unsigned int positions[16];
   for (unsigned int i = 0; i < len; i++) {
-    const char* p = strchr(HINT_CHARS, tolower((unsigned char)input[i]));
+    const char* p = strchr(chars, tolower((unsigned char)input[i]));
     if (p == NULL) {
       return -1;
     }
-    positions[i] = (unsigned int)(p - HINT_CHARS);
+    positions[i] = (unsigned int)(p - chars);
   }
   unsigned int offset = 0;
-  unsigned int block  = HINT_CHARS_N;
+  unsigned int block  = n;
   for (unsigned int l = 1; l < len; l++) {
     offset += block;
-    block  *= HINT_CHARS_N;
+    block  *= n;
   }
   unsigned int pos = 0;
   for (unsigned int i = 0; i < len; i++) {
-    pos = pos * HINT_CHARS_N + positions[i];
+    pos = pos * n + positions[i];
   }
   return (int)(offset + pos);
 }
@@ -643,6 +640,14 @@ static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo) {
     set_font_from_property(cairo, zathura, CAIRO_FONT_WEIGHT_BOLD);
 
     if (priv->links.draw == true && priv->links.n != 0) {
+      char* hint_chars = NULL;
+      girara_setting_get(zathura->ui.session, "hint-chars", &hint_chars);
+      if (hint_chars == NULL || hint_chars[0] == '\0') {
+        g_free(hint_chars);
+        hint_chars = g_strdup("sadfjklewcmpgh");
+      }
+      const unsigned int hint_n = strlen(hint_chars);
+
       unsigned int link_counter = 0;
       for (size_t idx = 0; idx != girara_list_size(priv->links.list); ++idx) {
         zathura_link_t* link = girara_list_nth(priv->links.list, idx);
@@ -657,7 +662,7 @@ static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo) {
           cairo_fill(cairo);
 
           /* draw hint badge */
-          char* label = hint_label(priv->links.offset + link_counter);
+          char* label = hint_label(hint_chars, hint_n, priv->links.offset + link_counter);
           link_counter++;
 
           cairo_text_extents_t ext;
@@ -688,6 +693,7 @@ static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo) {
           g_free(label);
         }
       }
+      g_free(hint_chars);
     }
 
     /* draw signatures */
