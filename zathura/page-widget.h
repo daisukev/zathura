@@ -64,6 +64,18 @@ void zathura_page_widget_clear_selection(ZathuraPageWidget* widget);
  */
 zathura_link_t* zathura_page_widget_link_get(ZathuraPageWidget* widget, unsigned int index);
 /**
+ * Generate prefix-free vimium-style hint labels for `count` links.
+ * Returns a heap-allocated array of `count` strings; free with vimium_hints_free().
+ * Returns NULL if count == 0.
+ */
+char** vimium_hints_generate(const char* chars, unsigned int n, unsigned int count);
+
+/**
+ * Free an array returned by vimium_hints_generate().
+ */
+void vimium_hints_free(char** hints, unsigned int count);
+
+/**
  * Convert a hint label (e.g. "AS") to its 0-based index.
  * Requires the same chars and total link count used to generate the hints.
  * Returns -1 if the input is invalid or not found.

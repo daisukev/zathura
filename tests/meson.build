@@ -43,6 +43,17 @@ test('utils', utils,
   env: env
 )
 
+hints = executable('test_hints', files('test_hints.c'),
+  dependencies: build_dependencies + test_dependencies,
+  include_directories: include_directories,
+  c_args: defines + flags
+)
+test('hints', hints,
+  timeout: 60*60,
+  protocol: 'tap',
+  env: env
+)
+
 xvfb = find_program('xvfb-run', required: get_option('tests'))
 weston = find_program('weston', required: get_option('tests'))
 if xvfb.found() or weston.found()

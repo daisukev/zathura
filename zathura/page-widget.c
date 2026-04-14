@@ -311,7 +311,7 @@ static int hint_strcmp(const void* a, const void* b) {
  *
  * Returns a heap-allocated array of `count` strings. Free with
  * vimium_hints_free(). Returns NULL if count == 0. */
-static char** vimium_hints_generate(const char* chars, unsigned int n, unsigned int count) {
+char** vimium_hints_generate(const char* chars, unsigned int n, unsigned int count) {
   if (count == 0 || chars == NULL || n == 0) {
     return NULL;
   }
@@ -356,7 +356,7 @@ static char** vimium_hints_generate(const char* chars, unsigned int n, unsigned 
   return slice;
 }
 
-static void vimium_hints_free(char** hints, unsigned int count) {
+void vimium_hints_free(char** hints, unsigned int count) {
   if (hints == NULL) {
     return;
   }
