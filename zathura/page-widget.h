@@ -64,10 +64,11 @@ void zathura_page_widget_clear_selection(ZathuraPageWidget* widget);
  */
 zathura_link_t* zathura_page_widget_link_get(ZathuraPageWidget* widget, unsigned int index);
 /**
- * Convert a hint label (e.g. "as") to its 0-based index given a character set.
- * Returns -1 if the input is invalid.
+ * Convert a hint label (e.g. "AS") to its 0-based index.
+ * Requires the same chars and total link count used to generate the hints.
+ * Returns -1 if the input is invalid or not found.
  */
-int hint_label_to_index(const char* chars, unsigned int n, const char* input);
+int hint_label_to_index(const char* chars, unsigned int n, unsigned int total, const char* input);
 /**
  * Update the last view time of the page.
  *

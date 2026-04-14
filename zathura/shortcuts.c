@@ -58,6 +58,19 @@ static bool draw_links(zathura_t* zathura) {
       g_object_set(obj_page_widget, "draw-links", FALSE, NULL);
     }
   }
+
+  /* second pass: tell every visible page the total link count so it can
+   * generate a globally consistent prefix-free hint set */
+  const unsigned int total_links = page_offset;
+  for (unsigned int page_id = 0; page_id < number_of_pages; page_id++) {
+    zathura_page_t* page = zathura_document_get_page(document, page_id);
+    if (page == NULL || zathura_page_get_visibility(page) == false) {
+      continue;
+    }
+    GtkWidget* page_widget = zathura_page_get_widget(zathura, page);
+    g_object_set(G_OBJECT(page_widget), "total-links", total_links, NULL);
+  }
+
   return show_links;
 }
 

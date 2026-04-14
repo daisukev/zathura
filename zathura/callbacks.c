@@ -385,13 +385,28 @@ static gboolean handle_link(GtkEntry* entry, girara_session_t* session, zathura_
     girara_setting_get(session, "hint-keys", &hint_keys);
 
     if (hint_keys) {
+      /* compute total visible link count */
+      zathura_document_t* doc       = zathura_get_document(zathura);
+      unsigned int total_links      = 0;
+      unsigned int np               = zathura_document_get_number_of_pages(doc);
+      for (unsigned int pid = 0; pid < np; pid++) {
+        zathura_page_t* pg = zathura_document_get_page(doc, pid);
+        if (pg == NULL || zathura_page_get_visibility(pg) == false) {
+          continue;
+        }
+        GtkWidget* pw = zathura_page_get_widget(zathura, pg);
+        int n         = 0;
+        g_object_get(G_OBJECT(pw), "number-of-links", &n, NULL);
+        total_links += n;
+      }
+
       char* hint_chars = NULL;
       girara_setting_get(session, "hint-chars", &hint_chars);
       if (hint_chars == NULL || hint_chars[0] == '\0') {
         g_free(hint_chars);
         hint_chars = g_strdup("sadfjklewcmpgh");
       }
-      index = hint_label_to_index(hint_chars, strlen(hint_chars), input);
+      index = hint_label_to_index(hint_chars, strlen(hint_chars), total_links, input);
       g_free(hint_chars);
       if (index < 0) {
         girara_notify(session, GIRARA_WARNING, _("Invalid input '%s' given."), input);
