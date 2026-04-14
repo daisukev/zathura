@@ -381,12 +381,11 @@ static gboolean handle_link(GtkEntry* entry, girara_session_t* session, zathura_
 
   int index = 0;
   if (eval == TRUE) {
-    index = atoi(input);
-    if (index == 0 && g_strcmp0(input, "0") != 0) {
+    index = hint_label_to_index(input);
+    if (index < 0) {
       girara_notify(session, GIRARA_WARNING, _("Invalid input '%s' given."), input);
       eval = FALSE;
     }
-    index = index - 1;
   }
 
   zathura_document_t* document = zathura_get_document(zathura);

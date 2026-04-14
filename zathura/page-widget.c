@@ -7,6 +7,7 @@
 #include <girara/datastructures.h>
 #include <girara-gtk/session.h>
 #include <string.h>
+#include <ctype.h>
 #include <glib/gi18n.h>
 #include <math.h>
 
@@ -274,6 +275,61 @@ static void zathura_page_widget_finalize(GObject* object) {
   girara_list_free(priv->links.list);
 
   G_OBJECT_CLASS(zathura_page_widget_parent_class)->finalize(object);
+}
+
+/* Vimium default hint characters */
+static const char HINT_CHARS[] = "sadfjklewcmpgh";
+static const unsigned int HINT_CHARS_N = 14;
+
+/* Convert a 0-based index to a hint label (1 char, then 2, then 3, ...).
+ * Caller must g_free(). */
+static char* hint_label(unsigned int index) {
+  unsigned int offset = 0;
+  unsigned int block  = HINT_CHARS_N;
+  unsigned int len    = 1;
+  while (index >= offset + block) {
+    offset += block;
+    block  *= HINT_CHARS_N;
+    len++;
+  }
+  unsigned int pos = index - offset;
+  char* label      = g_malloc(len + 1);
+  label[len]       = '\0';
+  for (int i = (int)len - 1; i >= 0; i--) {
+    label[i] = HINT_CHARS[pos % HINT_CHARS_N];
+    pos /= HINT_CHARS_N;
+  }
+  return label;
+}
+
+/* Convert a hint label back to its 0-based index, or -1 on error. */
+int hint_label_to_index(const char* input) {
+  if (input == NULL || input[0] == '\0') {
+    return -1;
+  }
+  unsigned int len = strlen(input);
+  if (len > 16) {
+    return -1;
+  }
+  unsigned int positions[16];
+  for (unsigned int i = 0; i < len; i++) {
+    const char* p = strchr(HINT_CHARS, tolower((unsigned char)input[i]));
+    if (p == NULL) {
+      return -1;
+    }
+    positions[i] = (unsigned int)(p - HINT_CHARS);
+  }
+  unsigned int offset = 0;
+  unsigned int block  = HINT_CHARS_N;
+  for (unsigned int l = 1; l < len; l++) {
+    offset += block;
+    block  *= HINT_CHARS_N;
+  }
+  unsigned int pos = 0;
+  for (unsigned int i = 0; i < len; i++) {
+    pos = pos * HINT_CHARS_N + positions[i];
+  }
+  return (int)(offset + pos);
 }
 
 static void set_font_from_property(cairo_t* cairo, zathura_t* zathura, cairo_font_weight_t weight) {
@@ -593,20 +649,43 @@ static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo) {
         if (link != NULL) {
           zathura_rectangle_t rectangle = recalc_rectangle(priv->page, zathura_link_get_position(link));
 
-          /* draw position */
+          /* draw link area highlight */
           const GdkRGBA color = zathura->ui.colors.highlight_color;
           cairo_set_source_rgba(cairo, color.red, color.green, color.blue, color.alpha);
           cairo_rectangle(cairo, rectangle.x1, rectangle.y1, (rectangle.x2 - rectangle.x1),
                           (rectangle.y2 - rectangle.y1));
           cairo_fill(cairo);
 
-          /* draw text */
-          const GdkRGBA color_fg = zathura->ui.colors.highlight_color_fg;
-          cairo_set_source_rgba(cairo, color_fg.red, color_fg.green, color_fg.blue, color_fg.alpha);
-          cairo_move_to(cairo, rectangle.x1 + 1, rectangle.y2 - 1);
-          char* link_number = g_strdup_printf("%i", priv->links.offset + ++link_counter);
-          cairo_show_text(cairo, link_number);
-          g_free(link_number);
+          /* draw hint badge */
+          char* label = hint_label(priv->links.offset + link_counter);
+          link_counter++;
+
+          cairo_text_extents_t ext;
+          cairo_text_extents(cairo, label, &ext);
+
+          const double pad  = 2.0;
+          const double bx   = rectangle.x1;
+          const double by   = rectangle.y1;
+          const double bw   = ext.width + 2.0 * pad;
+          const double bh   = ext.height + 2.0 * pad;
+
+          /* opaque badge background using highlight color at full alpha */
+          cairo_set_source_rgba(cairo, color.red, color.green, color.blue, 1.0);
+          cairo_rectangle(cairo, bx, by, bw, bh);
+          cairo_fill(cairo);
+
+          /* badge border */
+          cairo_set_source_rgba(cairo, 0.0, 0.0, 0.0, 0.7);
+          cairo_set_line_width(cairo, 0.5);
+          cairo_rectangle(cairo, bx + 0.25, by + 0.25, bw - 0.5, bh - 0.5);
+          cairo_stroke(cairo);
+
+          /* opaque badge text using foreground color at full alpha */
+          const GdkRGBA fg = zathura->ui.colors.highlight_color_fg;
+          cairo_set_source_rgba(cairo, fg.red, fg.green, fg.blue, 1.0);
+          cairo_move_to(cairo, bx + pad - ext.x_bearing, by + pad - ext.y_bearing);
+          cairo_show_text(cairo, label);
+          g_free(label);
         }
       }
     }
