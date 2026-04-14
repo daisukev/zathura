@@ -278,5 +278,6 @@ void cb_gesture_zoom_scale_changed(GtkGestureZoom* self, gdouble scale, void* da
  * @param data The zathura instance
  */
 void cb_hide_links(GtkWidget* widget, gpointer data);
+void cb_hints_inputbar_changed(GtkEditable* editable, gpointer data);
 
 #endif // CALLBACKS_H

@@ -188,6 +188,137 @@ static void test_lookup_roundtrip_vimium_chars(void) {
   }
 }
 
+/* ── incremental filter ──────────────────────────────────────────────────── */
+
+/* Count how many hints in the array match `filter` as a case-insensitive
+ * prefix. Mirrors the logic in zathura_page_widget_draw(). */
+static unsigned int count_matching(char** hints, unsigned int count, const char* filter) {
+  if (filter == NULL || filter[0] == '\0') {
+    return count;
+  }
+  unsigned int n = 0;
+  size_t flen    = strlen(filter);
+  for (unsigned int i = 0; i < count; i++) {
+    if (g_ascii_strncasecmp(hints[i], filter, flen) == 0) {
+      n++;
+    }
+  }
+  return n;
+}
+
+static void test_incremental_filter_reduces_candidates(void) {
+  /* With n=3 and 7 links some hints are 1-char, some 2-char.
+   * Filtering by a 1-char prefix that belongs only to 2-char hints should
+   * return fewer candidates than the full set. */
+  unsigned int count = 7;
+  char** hints       = vimium_hints_generate(CHARS, CHARS_N, count);
+  g_assert_nonnull(hints);
+
+  /* all hints visible when filter is empty */
+  g_assert_cmpuint(count_matching(hints, count, ""),  ==, count);
+  g_assert_cmpuint(count_matching(hints, count, NULL), ==, count);
+
+  /* filtering by the first char of any hint must return ≥ 1 */
+  for (unsigned int i = 0; i < count; i++) {
+    char prefix[2] = {hints[i][0], '\0'};
+    g_assert_cmpuint(count_matching(hints, count, prefix), >=, 1);
+  }
+
+  vimium_hints_free(hints, count);
+}
+
+static void test_incremental_exact_match_is_unique(void) {
+  /* Because hints are prefix-free, filtering by a complete hint as a prefix
+   * must yield exactly 1 result — the auto-follow trigger. */
+  unsigned int counts[] = {1, 3, 4, 14, 15, 50};
+  for (unsigned int ci = 0; ci < G_N_ELEMENTS(counts); ci++) {
+    unsigned int count = counts[ci];
+    char** hints       = vimium_hints_generate(CHARS, CHARS_N, count);
+    g_assert_nonnull(hints);
+
+    for (unsigned int i = 0; i < count; i++) {
+      g_assert_cmpuint(count_matching(hints, count, hints[i]), ==, 1);
+    }
+
+    vimium_hints_free(hints, count);
+  }
+}
+
+static void test_incremental_exact_match_is_unique_vimium_chars(void) {
+  unsigned int counts[] = {1, 14, 15, 100};
+  for (unsigned int ci = 0; ci < G_N_ELEMENTS(counts); ci++) {
+    unsigned int count = counts[ci];
+    char** hints       = vimium_hints_generate(VCHARS, VCHARS_N, count);
+    g_assert_nonnull(hints);
+
+    for (unsigned int i = 0; i < count; i++) {
+      g_assert_cmpuint(count_matching(hints, count, hints[i]), ==, 1);
+    }
+
+    vimium_hints_free(hints, count);
+  }
+}
+
+static void test_incremental_case_insensitive_filter(void) {
+  /* Filtering with lowercase prefix must match uppercase-rendered hints. */
+  unsigned int count = 15;
+  char** hints       = vimium_hints_generate(VCHARS, VCHARS_N, count);
+  g_assert_nonnull(hints);
+
+  for (unsigned int i = 0; i < count; i++) {
+    char* lower        = g_ascii_strdown(hints[i], -1);
+    unsigned int full  = count_matching(hints, count, hints[i]);
+    unsigned int lower_match = count_matching(hints, count, lower);
+    g_assert_cmpuint(lower_match, ==, full);
+    g_free(lower);
+  }
+
+  vimium_hints_free(hints, count);
+}
+
+static void test_incremental_nonexistent_prefix_zero_results(void) {
+  /* A prefix that doesn't begin any hint yields zero candidates. */
+  unsigned int count = 14;
+  char** hints       = vimium_hints_generate(CHARS, CHARS_N, count);
+  g_assert_nonnull(hints);
+
+  /* 'Z' is not in CHARS so no hint can start with it */
+  g_assert_cmpuint(count_matching(hints, count, "Z"), ==, 0);
+  g_assert_cmpuint(count_matching(hints, count, "1"), ==, 0);
+
+  vimium_hints_free(hints, count);
+}
+
+static void test_incremental_single_char_hint_triggers_immediately(void) {
+  /* When there are ≤ CHARS_N links every hint is a single character.
+   * Typing that single character must immediately yield exactly 1 match,
+   * meaning auto-follow would fire on the first keystroke. */
+  unsigned int count = CHARS_N; /* exactly n links → all single-char */
+  char** hints       = vimium_hints_generate(CHARS, CHARS_N, count);
+  g_assert_nonnull(hints);
+
+  for (unsigned int i = 0; i < count; i++) {
+    g_assert_cmpuint(strlen(hints[i]), ==, 1);
+    g_assert_cmpuint(count_matching(hints, count, hints[i]), ==, 1);
+  }
+
+  vimium_hints_free(hints, count);
+}
+
+static void test_incremental_partial_prefix_multiple_matches(void) {
+  /* Typing a first character that is shared by multiple 2-char hints should
+   * leave more than one candidate (no premature auto-follow). */
+  /* With n=3 "abc" and 4 links we get: ["AA","B","AB","C"].
+   * Filtering by "A" matches "AA" and "AB" → 2 results. */
+  char** hints = vimium_hints_generate(CHARS, CHARS_N, 4);
+  g_assert_nonnull(hints);
+
+  unsigned int a_matches = count_matching(hints, 4, "A");
+  g_assert_cmpuint(a_matches, >, 1);
+
+  vimium_hints_free(hints, 4);
+}
+
 /* ── main ────────────────────────────────────────────────────────────────── */
 
 int main(int argc, char* argv[]) {
@@ -206,6 +337,14 @@ int main(int argc, char* argv[]) {
   g_test_add_func("/hints/lookup/case_insensitive",          test_lookup_case_insensitive);
   g_test_add_func("/hints/lookup/invalid_input",             test_lookup_invalid_input);
   g_test_add_func("/hints/lookup/roundtrip_vimium_chars",    test_lookup_roundtrip_vimium_chars);
+
+  g_test_add_func("/hints/incremental/filter_reduces_candidates",          test_incremental_filter_reduces_candidates);
+  g_test_add_func("/hints/incremental/exact_match_is_unique",              test_incremental_exact_match_is_unique);
+  g_test_add_func("/hints/incremental/exact_match_is_unique_vimium_chars", test_incremental_exact_match_is_unique_vimium_chars);
+  g_test_add_func("/hints/incremental/case_insensitive_filter",            test_incremental_case_insensitive_filter);
+  g_test_add_func("/hints/incremental/nonexistent_prefix_zero_results",    test_incremental_nonexistent_prefix_zero_results);
+  g_test_add_func("/hints/incremental/single_char_triggers_immediately",   test_incremental_single_char_hint_triggers_immediately);
+  g_test_add_func("/hints/incremental/partial_prefix_multiple_matches",    test_incremental_partial_prefix_multiple_matches);
 
   return g_test_run();
 }

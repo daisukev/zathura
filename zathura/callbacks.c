@@ -468,6 +468,78 @@ gboolean cb_sc_follow(GtkEntry* entry, void* data) {
   return handle_link(entry, session, ZATHURA_LINK_ACTION_FOLLOW);
 }
 
+void cb_hints_inputbar_changed(GtkEditable* editable, gpointer data) {
+  zathura_t* zathura = data;
+  if (zathura == NULL) {
+    return;
+  }
+
+  /* update the filter stored on zathura so page widgets read it during draw */
+  g_free(zathura->global.hint_filter);
+  const char* text         = gtk_entry_get_text(GTK_ENTRY(editable));
+  zathura->global.hint_filter = g_strdup(text);
+
+  /* redraw all visible page widgets to apply the new filter */
+  zathura_document_t* document = zathura_get_document(zathura);
+  if (document == NULL) {
+    return;
+  }
+  const unsigned int number_of_pages = zathura_document_get_number_of_pages(document);
+  for (unsigned int page_id = 0; page_id < number_of_pages; page_id++) {
+    zathura_page_t* page = zathura_document_get_page(document, page_id);
+    if (page == NULL || zathura_page_get_visibility(page) == false) {
+      continue;
+    }
+    gtk_widget_queue_draw(zathura_page_get_widget(zathura, page));
+  }
+
+  /* check for a unique exact match — safe to auto-follow because hints are
+   * prefix-free, so an exact match is always unambiguous */
+  if (text == NULL || text[0] == '\0') {
+    return;
+  }
+
+  unsigned int total_links = 0;
+  for (unsigned int page_id = 0; page_id < number_of_pages; page_id++) {
+    zathura_page_t* page = zathura_document_get_page(document, page_id);
+    if (page == NULL || zathura_page_get_visibility(page) == false) {
+      continue;
+    }
+    int n = 0;
+    g_object_get(G_OBJECT(zathura_page_get_widget(zathura, page)), "number-of-links", &n, NULL);
+    total_links += n;
+  }
+  if (total_links == 0) {
+    return;
+  }
+
+  char* hint_chars = NULL;
+  girara_setting_get(zathura->ui.session, "hint-chars", &hint_chars);
+  if (hint_chars == NULL || hint_chars[0] == '\0') {
+    g_free(hint_chars);
+    hint_chars = g_strdup("sadfjklewcmpgh");
+  }
+
+  char** hints = vimium_hints_generate(hint_chars, strlen(hint_chars), total_links);
+  g_free(hint_chars);
+  if (hints == NULL) {
+    return;
+  }
+
+  bool found = false;
+  for (unsigned int i = 0; i < total_links; i++) {
+    if (g_ascii_strcasecmp(hints[i], text) == 0) {
+      found = true;
+      break;
+    }
+  }
+  vimium_hints_free(hints, total_links);
+
+  if (found) {
+    gtk_widget_activate(GTK_WIDGET(editable));
+  }
+}
+
 gboolean cb_sc_display_link(GtkEntry* entry, void* data) {
   girara_session_t* session = data;
   return handle_link(entry, session, ZATHURA_LINK_ACTION_DISPLAY);
@@ -769,11 +841,19 @@ void cb_hide_links(GtkWidget* widget, gpointer data) {
   g_return_if_fail(widget != NULL);
   g_return_if_fail(data != NULL);
 
-  /* disconnect from signal */
+  /* disconnect hide handler */
   gulong handler_id = GPOINTER_TO_UINT(g_object_steal_data(G_OBJECT(widget), "handler_id"));
   g_signal_handler_disconnect(G_OBJECT(widget), handler_id);
 
-  zathura_t* zathura           = data;
+  /* disconnect incremental-hints changed handler and clear filter if active */
+  zathura_t* zathura = data;
+  gulong changed_id  = GPOINTER_TO_UINT(g_object_steal_data(G_OBJECT(widget), "hint_changed_handler_id"));
+  if (changed_id != 0) {
+    g_signal_handler_disconnect(G_OBJECT(zathura->ui.session->gtk.inputbar_entry), changed_id);
+    g_free(zathura->global.hint_filter);
+    zathura->global.hint_filter = NULL;
+  }
+
   zathura_document_t* document = zathura_get_document(zathura);
   unsigned int number_of_pages = zathura_document_get_number_of_pages(document);
   for (unsigned int page_id = 0; page_id < number_of_pages; page_id++) {

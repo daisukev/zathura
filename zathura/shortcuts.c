@@ -91,6 +91,18 @@ static bool link_shortcuts(zathura_t* zathura, girara_callback_inputbar_activate
 
     zathura_document_set_adjust_mode(document, ZATHURA_ADJUST_INPUTBAR);
     girara_dialog(zathura->ui.session, text, FALSE, NULL, callback, zathura->ui.session);
+
+    /* connect incremental filter handler if both hint-keys and hint-incremental are on */
+    bool hint_keys        = false;
+    bool hint_incremental = false;
+    girara_setting_get(zathura->ui.session, "hint-keys",        &hint_keys);
+    girara_setting_get(zathura->ui.session, "hint-incremental", &hint_incremental);
+    if (hint_keys && hint_incremental) {
+      GtkEntry* entry   = zathura->ui.session->gtk.inputbar_entry;
+      gulong changed_id = g_signal_connect(G_OBJECT(entry), "changed",
+                                           G_CALLBACK(cb_hints_inputbar_changed), zathura);
+      g_object_set_data(G_OBJECT(inputbar), "hint_changed_handler_id", GUINT_TO_POINTER(changed_id));
+    }
   }
 
   return false;

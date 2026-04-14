@@ -155,6 +155,7 @@ struct zathura_s {
     GtkTreePath* current_index_path;      /**< Current index path */
     int current_search_result;
     int total_search_results;
+    char* hint_filter;                    /**< Current incremental hint filter (NULL = no filter) */
   } global;
 
   struct {

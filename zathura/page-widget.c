@@ -724,17 +724,24 @@ static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo) {
         if (link != NULL) {
           zathura_rectangle_t rectangle = recalc_rectangle(priv->page, zathura_link_get_position(link));
 
-          /* draw link area highlight */
-          const GdkRGBA color = zathura->ui.colors.highlight_color;
-          cairo_set_source_rgba(cairo, color.red, color.green, color.blue, color.alpha);
-          cairo_rectangle(cairo, rectangle.x1, rectangle.y1, (rectangle.x2 - rectangle.x1),
-                          (rectangle.y2 - rectangle.y1));
-          cairo_fill(cairo);
-
           if (hint_keys && all_hints != NULL) {
-            /* draw hint badge */
-            const char* label = all_hints[priv->links.offset + link_counter];
+            const char* label      = all_hints[priv->links.offset + link_counter];
             link_counter++;
+            const char* filter     = zathura->global.hint_filter;
+            const bool  matches    = (filter == NULL || filter[0] == '\0' ||
+                                      g_ascii_strncasecmp(label, filter, strlen(filter)) == 0);
+
+            if (!matches) {
+              /* hint filtered out — skip highlight and badge entirely */
+              continue;
+            }
+
+            /* draw link area highlight */
+            const GdkRGBA color = zathura->ui.colors.highlight_color;
+            cairo_set_source_rgba(cairo, color.red, color.green, color.blue, color.alpha);
+            cairo_rectangle(cairo, rectangle.x1, rectangle.y1, (rectangle.x2 - rectangle.x1),
+                            (rectangle.y2 - rectangle.y1));
+            cairo_fill(cairo);
 
             cairo_text_extents_t ext;
             cairo_text_extents(cairo, label, &ext);
@@ -768,7 +775,13 @@ static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo) {
             cairo_move_to(cairo, bx + pad - ext.x_bearing, by + pad - ext.y_bearing);
             cairo_show_text(cairo, label);
           } else {
-            /* original behavior: draw number over the highlight */
+            /* original behavior: highlight + number */
+            const GdkRGBA color = zathura->ui.colors.highlight_color;
+            cairo_set_source_rgba(cairo, color.red, color.green, color.blue, color.alpha);
+            cairo_rectangle(cairo, rectangle.x1, rectangle.y1, (rectangle.x2 - rectangle.x1),
+                            (rectangle.y2 - rectangle.y1));
+            cairo_fill(cairo);
+
             const GdkRGBA color_fg = zathura->ui.colors.highlight_color_fg;
             cairo_set_source_rgba(cairo, color_fg.red, color_fg.green, color_fg.blue, color_fg.alpha);
             cairo_move_to(cairo, rectangle.x1 + 1, rectangle.y2 - 1);
