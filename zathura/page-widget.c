@@ -640,13 +640,19 @@ static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo) {
     set_font_from_property(cairo, zathura, CAIRO_FONT_WEIGHT_BOLD);
 
     if (priv->links.draw == true && priv->links.n != 0) {
-      char* hint_chars = NULL;
-      girara_setting_get(zathura->ui.session, "hint-chars", &hint_chars);
-      if (hint_chars == NULL || hint_chars[0] == '\0') {
-        g_free(hint_chars);
-        hint_chars = g_strdup("sadfjklewcmpgh");
+      bool hint_keys = false;
+      girara_setting_get(zathura->ui.session, "hint-keys", &hint_keys);
+
+      char* hint_chars    = NULL;
+      unsigned int hint_n = 0;
+      if (hint_keys) {
+        girara_setting_get(zathura->ui.session, "hint-chars", &hint_chars);
+        if (hint_chars == NULL || hint_chars[0] == '\0') {
+          g_free(hint_chars);
+          hint_chars = g_strdup("sadfjklewcmpgh");
+        }
+        hint_n = strlen(hint_chars);
       }
-      const unsigned int hint_n = strlen(hint_chars);
 
       unsigned int link_counter = 0;
       for (size_t idx = 0; idx != girara_list_size(priv->links.list); ++idx) {
@@ -661,41 +667,51 @@ static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo) {
                           (rectangle.y2 - rectangle.y1));
           cairo_fill(cairo);
 
-          /* draw hint badge */
-          char* label = hint_label(hint_chars, hint_n, priv->links.offset + link_counter);
-          link_counter++;
+          if (hint_keys) {
+            /* draw hint badge */
+            char* label = hint_label(hint_chars, hint_n, priv->links.offset + link_counter);
+            link_counter++;
 
-          cairo_text_extents_t ext;
-          cairo_text_extents(cairo, label, &ext);
+            cairo_text_extents_t ext;
+            cairo_text_extents(cairo, label, &ext);
 
-          const double pad  = 2.0;
-          const double bx   = rectangle.x1;
-          const double by   = rectangle.y1;
-          const double bw   = ext.width + 2.0 * pad;
-          const double bh   = ext.height + 2.0 * pad;
+            const double pad = 2.0;
+            const double bx  = rectangle.x1;
+            const double by  = rectangle.y1;
+            const double bw  = ext.width + 2.0 * pad;
+            const double bh  = ext.height + 2.0 * pad;
 
-          /* badge background: use hint-color if set, else opaque highlight-color */
-          const GdkRGBA hc  = zathura->ui.colors.hint_color;
-          const GdkRGBA bg  = hc.alpha > 0.0 ? hc : (GdkRGBA){color.red, color.green, color.blue, 1.0};
-          cairo_set_source_rgba(cairo, bg.red, bg.green, bg.blue, bg.alpha);
-          cairo_rectangle(cairo, bx, by, bw, bh);
-          cairo_fill(cairo);
+            /* badge background: use hint-color if set, else opaque highlight-color */
+            const GdkRGBA hc = zathura->ui.colors.hint_color;
+            const GdkRGBA bg = hc.alpha > 0.0 ? hc : (GdkRGBA){color.red, color.green, color.blue, 1.0};
+            cairo_set_source_rgba(cairo, bg.red, bg.green, bg.blue, bg.alpha);
+            cairo_rectangle(cairo, bx, by, bw, bh);
+            cairo_fill(cairo);
 
-          /* badge border */
-          cairo_set_source_rgba(cairo, 0.0, 0.0, 0.0, 0.7);
-          cairo_set_line_width(cairo, 0.5);
-          cairo_rectangle(cairo, bx + 0.25, by + 0.25, bw - 0.5, bh - 0.5);
-          cairo_stroke(cairo);
+            /* badge border */
+            cairo_set_source_rgba(cairo, 0.0, 0.0, 0.0, 0.7);
+            cairo_set_line_width(cairo, 0.5);
+            cairo_rectangle(cairo, bx + 0.25, by + 0.25, bw - 0.5, bh - 0.5);
+            cairo_stroke(cairo);
 
-          /* badge text: use hint-fg if set, else opaque highlight-fg */
-          const GdkRGBA hfg = zathura->ui.colors.hint_color_fg;
-          const GdkRGBA fg  = hfg.alpha > 0.0 ? hfg : (GdkRGBA){zathura->ui.colors.highlight_color_fg.red,
-                                                                   zathura->ui.colors.highlight_color_fg.green,
-                                                                   zathura->ui.colors.highlight_color_fg.blue, 1.0};
-          cairo_set_source_rgba(cairo, fg.red, fg.green, fg.blue, fg.alpha);
-          cairo_move_to(cairo, bx + pad - ext.x_bearing, by + pad - ext.y_bearing);
-          cairo_show_text(cairo, label);
-          g_free(label);
+            /* badge text: use hint-fg if set, else opaque highlight-fg */
+            const GdkRGBA hfg = zathura->ui.colors.hint_color_fg;
+            const GdkRGBA fg  = hfg.alpha > 0.0 ? hfg : (GdkRGBA){zathura->ui.colors.highlight_color_fg.red,
+                                                                     zathura->ui.colors.highlight_color_fg.green,
+                                                                     zathura->ui.colors.highlight_color_fg.blue, 1.0};
+            cairo_set_source_rgba(cairo, fg.red, fg.green, fg.blue, fg.alpha);
+            cairo_move_to(cairo, bx + pad - ext.x_bearing, by + pad - ext.y_bearing);
+            cairo_show_text(cairo, label);
+            g_free(label);
+          } else {
+            /* original behavior: draw number over the highlight */
+            const GdkRGBA color_fg = zathura->ui.colors.highlight_color_fg;
+            cairo_set_source_rgba(cairo, color_fg.red, color_fg.green, color_fg.blue, color_fg.alpha);
+            cairo_move_to(cairo, rectangle.x1 + 1, rectangle.y2 - 1);
+            char* link_number = g_strdup_printf("%i", priv->links.offset + ++link_counter);
+            cairo_show_text(cairo, link_number);
+            g_free(link_number);
+          }
         }
       }
       g_free(hint_chars);

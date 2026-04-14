@@ -381,17 +381,29 @@ static gboolean handle_link(GtkEntry* entry, girara_session_t* session, zathura_
 
   int index = 0;
   if (eval == TRUE) {
-    char* hint_chars = NULL;
-    girara_setting_get(session, "hint-chars", &hint_chars);
-    if (hint_chars == NULL || hint_chars[0] == '\0') {
+    bool hint_keys = false;
+    girara_setting_get(session, "hint-keys", &hint_keys);
+
+    if (hint_keys) {
+      char* hint_chars = NULL;
+      girara_setting_get(session, "hint-chars", &hint_chars);
+      if (hint_chars == NULL || hint_chars[0] == '\0') {
+        g_free(hint_chars);
+        hint_chars = g_strdup("sadfjklewcmpgh");
+      }
+      index = hint_label_to_index(hint_chars, strlen(hint_chars), input);
       g_free(hint_chars);
-      hint_chars = g_strdup("sadfjklewcmpgh");
-    }
-    index = hint_label_to_index(hint_chars, strlen(hint_chars), input);
-    g_free(hint_chars);
-    if (index < 0) {
-      girara_notify(session, GIRARA_WARNING, _("Invalid input '%s' given."), input);
-      eval = FALSE;
+      if (index < 0) {
+        girara_notify(session, GIRARA_WARNING, _("Invalid input '%s' given."), input);
+        eval = FALSE;
+      }
+    } else {
+      index = atoi(input);
+      if (index == 0 && g_strcmp0(input, "0") != 0) {
+        girara_notify(session, GIRARA_WARNING, _("Invalid input '%s' given."), input);
+        eval = FALSE;
+      }
+      index = index - 1;
     }
   }
 

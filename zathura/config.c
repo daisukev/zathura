@@ -588,6 +588,8 @@ void config_load_default(zathura_t* zathura) {
   girara_setting_add(gsession, "link-hadjust",           &bool_value,  BOOLEAN, false, _("Align link target to the left"), NULL, NULL);
   bool_value = true;
   girara_setting_add(gsession, "link-zoom",              &bool_value,  BOOLEAN, false, _("Let zoom be changed when following links"), NULL, NULL);
+  bool_value = false;
+  girara_setting_add(gsession, "hint-keys",              &bool_value,  BOOLEAN, false, _("Use keyboard hint characters for link following instead of numbers"), NULL, NULL);
   girara_setting_add(gsession, "hint-chars",             "sadfjklewcmpgh", STRING, false, _("Characters used for link hints"), NULL, NULL);
   bool_value = true;
   girara_setting_add(gsession, "search-hadjust",         &bool_value,  BOOLEAN, false, _("Center result horizontally"), NULL, NULL);
