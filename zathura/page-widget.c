@@ -674,8 +674,10 @@ static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo) {
           const double bw   = ext.width + 2.0 * pad;
           const double bh   = ext.height + 2.0 * pad;
 
-          /* opaque badge background using highlight color at full alpha */
-          cairo_set_source_rgba(cairo, color.red, color.green, color.blue, 1.0);
+          /* badge background: use hint-color if set, else opaque highlight-color */
+          const GdkRGBA hc  = zathura->ui.colors.hint_color;
+          const GdkRGBA bg  = hc.alpha > 0.0 ? hc : (GdkRGBA){color.red, color.green, color.blue, 1.0};
+          cairo_set_source_rgba(cairo, bg.red, bg.green, bg.blue, bg.alpha);
           cairo_rectangle(cairo, bx, by, bw, bh);
           cairo_fill(cairo);
 
@@ -685,9 +687,12 @@ static gboolean zathura_page_widget_draw(GtkWidget* widget, cairo_t* cairo) {
           cairo_rectangle(cairo, bx + 0.25, by + 0.25, bw - 0.5, bh - 0.5);
           cairo_stroke(cairo);
 
-          /* opaque badge text using foreground color at full alpha */
-          const GdkRGBA fg = zathura->ui.colors.highlight_color_fg;
-          cairo_set_source_rgba(cairo, fg.red, fg.green, fg.blue, 1.0);
+          /* badge text: use hint-fg if set, else opaque highlight-fg */
+          const GdkRGBA hfg = zathura->ui.colors.hint_color_fg;
+          const GdkRGBA fg  = hfg.alpha > 0.0 ? hfg : (GdkRGBA){zathura->ui.colors.highlight_color_fg.red,
+                                                                   zathura->ui.colors.highlight_color_fg.green,
+                                                                   zathura->ui.colors.highlight_color_fg.blue, 1.0};
+          cairo_set_source_rgba(cairo, fg.red, fg.green, fg.blue, fg.alpha);
           cairo_move_to(cairo, bx + pad - ext.x_bearing, by + pad - ext.y_bearing);
           cairo_show_text(cairo, label);
           g_free(label);

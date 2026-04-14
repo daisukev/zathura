@@ -77,6 +77,10 @@ static void cb_color_change(girara_session_t* session, const char* name, girara_
     if (zathura->sync.render_thread != NULL) {
       zathura_renderer_set_recolor_colors_str(zathura->sync.render_thread, string_value, NULL);
     }
+  } else if (g_strcmp0(name, "hint-color") == 0) {
+    parse_color(&zathura->ui.colors.hint_color, string_value);
+  } else if (g_strcmp0(name, "hint-fg") == 0) {
+    parse_color(&zathura->ui.colors.hint_color_fg, string_value);
   } else if (g_strcmp0(name, "render-loading-bg") == 0) {
     parse_color(&zathura->ui.colors.render_loading_bg, string_value);
   } else if (g_strcmp0(name, "render-loading-fg") == 0) {
@@ -540,6 +544,8 @@ void config_load_default(zathura_t* zathura) {
   girara_setting_add(gsession, "highlight-color",        NULL,      STRING, false, _("Color for highlighting"), cb_color_change, NULL);
   girara_setting_add(gsession, "highlight-fg",           NULL,      STRING, false, _("Foreground color for highlighting"),cb_color_change, NULL);
   girara_setting_add(gsession, "highlight-active-color", NULL,      STRING, false, _("Color for highlighting (active)"), cb_color_change, NULL);
+  girara_setting_add(gsession, "hint-color",             NULL,      STRING, false, _("Badge background color for link hints (defaults to opaque highlight-color)"), cb_color_change, NULL);
+  girara_setting_add(gsession, "hint-fg",                NULL,      STRING, false, _("Badge text color for link hints (defaults to opaque highlight-fg)"), cb_color_change, NULL);
   girara_setting_add(gsession, "render-loading-bg",      NULL,      STRING, false, _("'Loading ...' background color"), cb_color_change, NULL);
   girara_setting_add(gsession, "render-loading-fg",      NULL,      STRING, false, _("'Loading ...' foreground color"), cb_color_change, NULL);
 

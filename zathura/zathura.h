@@ -111,7 +111,9 @@ struct zathura_s {
     struct {
       GdkRGBA highlight_color;        /**< Color for highlighting */
       GdkRGBA highlight_color_fg;     /**< Color for highlighting (foreground) */
-      GdkRGBA highlight_color_active; /** Color for highlighting */
+      GdkRGBA highlight_color_active; /**< Color for highlighting (active) */
+      GdkRGBA hint_color;             /**< Badge background color for link hints (alpha=0: use opaque highlight_color) */
+      GdkRGBA hint_color_fg;          /**< Badge text color for link hints (alpha=0: use opaque highlight_color_fg) */
       GdkRGBA render_loading_bg;      /**< Background color for render "Loading..." */
       GdkRGBA render_loading_fg;      /**< Foreground color for render "Loading..." */
       GdkRGBA signature_success;      /**> Color for highlighing valid signatures */
